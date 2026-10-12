@@ -1,3 +1,5 @@
+> How this was built with Devin, with time, usage and findings per session: [docs/devin-log.md](docs/devin-log.md)
+
 # Internal Tools Kit (PoC)
 
 A governed platform layer for fintech operations tools (payments, refunds, KYC). It provides the
