@@ -1,54 +1,114 @@
-# How this was built with Devin
+# Build log
+
+Built on Oct 12, 2026 with Devin Cloud (Normal agent, Max plan).
 
 Build time: ~2h wall clock for the three Devin sessions, including my
-reviews and merges. One-time setup before
-that (repo, guardrail files, GitHub connection, Devin environment) took
-~30min.
+reviews and merges. One-time setup before that (repo, guardrail files,
+GitHub connection, Devin environment) took ~30min.
 
-**Total usage for the whole prototype: 6% of one week's included quota on
-the Max plan ($200/month); $0.00 on-demand credit used.** Devin reports
-included usage only as a total, not per session; all three sessions are
-listed as "Included in quota" in Usage history.
+Usage: 6% of the weekly included quota, $0 on-demand. Devin only shows
+included usage as a total, not per session. All three sessions are listed
+as "Included in quota" (size XS).
 
-| Session | Goal | Devin work time | Usage | My messages | Outcome |
-|---|---|---|---|---|---|
-| 1 | Platform layer (auth, RBAC, audit, approvals, PII, shared UI) | ~23 min | Included in quota (size XS), $0.00 on-demand | 1 (the prompt) + 2 approvals (env setup, testing skill) | PR #1: 82 files, 87 tests, CI green on first run |
-| 2 | Refunds app | ~26 min | Included in quota (size XS), $0.00 on-demand | 2 (prompt + 1 correction: Refunds card shown 3x) + 1 approval (env fix) | PR #2: CI failed once, self-fixed; 137 tests |
-| 3 | KYC Review Queue from a 10-line spec via skill | ~12 min | Included in quota (size XS), $0.00 on-demand | 1 (one-line instruction) | PR #3: 22 files, 188 tests total |
+I wrote [AGENTS.md](../AGENTS.md), the
+[PR template](../.github/pull_request_template.md), the
+[KYC spec](specs/kyc-review-queue.md) and the
+[skill](../.agents/skills/new-internal-tool/SKILL.md). Devin wrote the
+rest. I reviewed and merged each PR.
 
-## Findings
-- App #3 (22 files) was ~8x smaller than the platform PR (82 files):
-  new apps reuse auth, audit, approvals and PII masking.
-- Human review still mattered: I caught a UI bug that all tests missed
-  (duplicate app card). Devin found the real root cause, added a
-  regression test, and saved the lesson to memory.
-- Devin replaced a failing concurrency test (SQLite lock timeout) with a
-  deterministic one and disclosed it. Over-refund protection still holds;
-  production needs a real concurrency test against PostgreSQL.
-- Lessons became guardrails: the new-internal-tool skill now checks that
-  each app appears exactly once and forbids silently replacing tests.
-  Session 3 followed both rules.
-- Environment: the first build failed (no package.json yet). Devin
-  diagnosed an npm 10.8.3 install crash and proposed a verified fix
-  (npm 11). For production, pin the npm version.
-- npm audit: 5 high-severity issues in dev-only ESLint dependencies,
-  flagged by Devin, not force-fixed.
-- Platform gap: the approval rules are money-only; KYC needed a
-  risk-score rule, so the shared platform will need to evolve.
+| Session | What | Devin time | My corrections | PR |
+|---|---|---|---|---|
+| 1 | Platform layer | ~23 min | 0 | [#1](https://github.com/Memal7/devin-internal-tools-poc/pull/1): 82 files, 87 tests |
+| 2 | Refunds app | ~26 min | 1 | [#2](https://github.com/Memal7/devin-internal-tools-poc/pull/2): 137 tests |
+| 3 | KYC queue | ~12 min | 0 | [#3](https://github.com/Memal7/devin-internal-tools-poc/pull/3): 22 files, 188 tests |
 
-## Devin's own retrospective (Session Insights)
-- Session 1 (low): Devin didn't explicitly confirm reading AGENTS.md,
-  although the implementation followed its rules. It found and fixed an
-  authorization bug in decideApproval while seeding data.
-- Session 2 (medium): the concurrent test didn't account for SQLite
-  locking. Devin should have checked shared pages (the home page) during
-  browser verification, which is the issue I caught. (Low) It didn't use
-  an npm 11 note from memory until the build broke.
-- Session 3: no issues of note. Suggested prompt improvements for next
-  time: state the current repo state upfront, point to the Refunds app as
-  the reference implementation, and spell out the testing approach and
-  regression checks.
+## Session 1: platform layer
 
-Takeaway: the agent's own retrospective flagged the same gaps the human
-review found. Feeding these back into AGENTS.md and the skill is how the
-next apps get faster and safer.
+One prompt. Devin built auth, roles, the audit log, approvals, PII masking
+and the shared UI. Before opening the PR it logged in as each of the five
+demo users in its own browser. CI passed on the first run.
+
+I approved two things Devin suggested: an environment setup and a
+browser-testing skill.
+
+In review I checked the self-approval rule in the code. `decideApproval()`
+rejects it and writes `approval.self_approval_blocked` to the audit log.
+The audit table is protected by DB triggers, an ORM guard and a test,
+which is more than I asked for.
+
+npm audit shows 5 high findings, all in dev-only ESLint dependencies.
+Devin reported them and didn't force a fix. I think that was right.
+
+## Session 2: refunds
+
+Devin picked up the testing skill from session 1 on its own.
+
+While it was testing, I noticed the Refunds card appeared three times on
+the home page. All tests were green. I sent one message and guessed the
+app was registered three times. Wrong guess: the home page rendered one
+card per nav entry, and Refunds has three. Devin fixed that, made
+registration idempotent anyway and added a test.
+
+CI failed once. Devin had written a test that sends five refund requests
+for the same payment in parallel, and SQLite locking made it time out. It
+replaced the test with a deterministic one and said so in the PR. The
+over-refund check still holds, and the worst case is a refused request,
+not a double refund. OK for a PoC. Before production I'd want the
+parallel test running against Postgres.
+
+Environment: the first snapshot was built before there was any code, so
+setup failed. Later npm 10.8.3 crashed on a clean install. Devin proposed
+npm 11 and I approved it. The version should be pinned.
+
+After this session I wrote the skill and added two rules from what
+happened: check that the app shows up exactly once on the home page, and
+don't replace a failing test without explaining why.
+
+## Session 3: KYC queue
+
+The prompt was one line pointing at the skill and the spec. Devin posted
+a plan first, reused the platform approvals (so four-eyes and auditing
+came with it), checked the home page, and changed one existing test
+without removing any assertions. No corrections from me. 22 files,
+compared to 82 for the platform.
+
+One workaround: approval rules only understand money amounts, and KYC
+needs a risk score. The platform will need more general rules.
+
+## What I checked in review
+
+- PR #1: CI, the security checklist, and the self-approval rule in code.
+- PR #2: that the `src/platform/` changes were only the registry and home
+  page fix, that the refund check runs in one transaction, and the
+  replaced test.
+- PR #3: that the only platform change was registering the app, and the
+  home page screenshot.
+
+## Open before production
+
+- Parallel refund test against Postgres.
+- The app registry lives in `src/platform/` and imports the apps, so the
+  platform depends on the apps. It should be the other way round, with
+  CODEOWNERS and a dependency check in CI.
+- Approval rules beyond money amounts.
+- Pin Node and npm versions.
+- The 5 npm audit findings.
+- The usual hardening: Postgres, Entra ID or Okta, hosting, secrets
+  management, pen test, SOC 2 evidence.
+
+## Session Insights
+
+Devin's own retros flagged the same two problems I found in session 2:
+it didn't check shared pages, and it didn't account for SQLite locking.
+For session 1 it noted it never confirmed reading AGENTS.md, although it
+followed it. For session 3 it suggested a better prompt: say what's
+already on main and point at the refunds app as the reference.
+
+## How I'd run this with a team
+
+1. Rules go in AGENTS.md and the PR template.
+2. Each new tool gets a ~10-line spec in docs/specs/.
+3. The session prompt is one line pointing at the skill and the spec.
+4. Review: CI, the checklist, the critical control in code, and click
+   through the app.
+5. Anything found in review goes back into AGENTS.md or the skill.
