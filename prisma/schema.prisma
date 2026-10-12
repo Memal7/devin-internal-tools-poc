@@ -73,3 +73,48 @@ model ApprovalRequest {
   @@index([entityType, entityId])
   @@map("approval_requests")
 }
+
+// --- Refunds app (src/apps/refunds) ---
+
+model Payment {
+  id            String   @id @default(cuid())
+  reference     String   @unique // human-readable, e.g. PAY-000123
+  customerName  String // PII: masked by default
+  amountMinor   Int // money in integer minor units
+  currency      String // ISO 4217
+  status        String // succeeded | pending | failed
+  // Sum of refunds that are requested, auto_approved or approved. Updated atomically so
+  // total refunds can never exceed amountMinor.
+  refundedMinor Int      @default(0)
+  createdAt     DateTime @default(now()) // UTC
+  updatedAt     DateTime @updatedAt
+  refunds       Refund[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@map("payments")
+}
+
+model Refund {
+  id               String    @id @default(cuid())
+  paymentId        String
+  payment          Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  amountMinor      Int // money in integer minor units
+  currency         String // ISO 4217, always the payment's currency
+  reason           String
+  status           String // requested | auto_approved | approved | declined
+  requestedById    String
+  requestedByEmail String
+  decidedById      String?
+  decidedByEmail   String?
+  decisionReason   String?
+  decidedAt        DateTime? // UTC
+  createdAt        DateTime  @default(now()) // UTC, when the refund was requested
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([amountMinor])
+  @@index([paymentId])
+  @@map("refunds")
+}

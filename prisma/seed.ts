@@ -1,3 +1,5 @@
+import { SEED_PAYMENT_COUNT, seedRefundsDemo } from "../src/apps/refunds/seed";
+import { syncDecidedRefunds } from "../src/apps/refunds/service";
 import { decideApproval, requestApproval } from "../src/platform/approvals/service";
 import { demoPaymentRule } from "../src/platform/approvals/rules";
 import { SYSTEM_ACTOR } from "../src/platform/audit/types";
@@ -48,7 +50,9 @@ async function ensureApprovals(users: Record<string, AuthUser>) {
 async function main() {
   const users = await ensureUsers();
   await ensureApprovals(users);
-  console.log(`Seeded ${DEMO_USERS.length} demo users and demo approval requests.`);
+  await seedRefundsDemo(users);
+  await syncDecidedRefunds();
+  console.log(`Seeded ${DEMO_USERS.length} demo users, demo approval requests, ${SEED_PAYMENT_COUNT} payments and demo refunds.`);
 }
 
 main()
