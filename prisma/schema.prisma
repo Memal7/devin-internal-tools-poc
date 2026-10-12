@@ -1,0 +1,75 @@
+// Portable schema: keep it compatible with PostgreSQL (no SQLite-only features).
+// Enum-like columns are plain strings validated with Zod in the platform layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  roles     UserRole[]
+
+  @@map("users")
+}
+
+model UserRole {
+  userId String
+  role   String // viewer | operator | approver | admin
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+// Append-only. There must never be an update or delete code path for this table.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String? // null for system actions (e.g. seed)
+  actorEmail String
+  action     String
+  entityType String
+  entityId   String
+  before     String? // JSON snapshot
+  after      String? // JSON snapshot
+  metadata   String? // JSON, never contains PII values
+  createdAt  DateTime @default(now()) // UTC
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([actorEmail])
+  @@index([action])
+  @@map("audit_events")
+}
+
+model ApprovalRequest {
+  id             String    @id @default(cuid())
+  ruleKey        String
+  entityType     String
+  entityId       String
+  summary        String
+  amountMinor    Int? // money in integer minor units
+  currency       String? // ISO 4217
+  payload        String // JSON
+  status         String    @default("pending") // pending | approved | declined
+  requesterId    String
+  requesterEmail String
+  deciderId      String?
+  deciderEmail   String?
+  decisionReason String?
+  decidedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
