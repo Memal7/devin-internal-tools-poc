@@ -1,9 +1,9 @@
 # How this was built with Devin
 
-Total prototype time: ~2h wall clock (17:40–19:40, Oct 12, 2026), including
-repo and Devin setup. All application code was written by Devin Cloud
-sessions. I wrote AGENTS.md, the PR template, the KYC spec and the
-new-internal-tool skill, and reviewed and merged every PR.
+Build time: ~2h wall clock for the three Devin sessions, including my
+reviews and merges. One-time setup before
+that (repo, guardrail files, GitHub connection, Devin environment) took
+~30min.
 
 **Total usage for the whole prototype: 6% of one week's included quota on
 the Max plan ($200/month); $0.00 on-demand credit used.** Devin reports
