@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { homeAppCards } from "@/app/(platform)/home-apps";
+import { kycApp } from "@/apps/kyc/manifest";
 import { refundsApp } from "@/apps/refunds/manifest";
 import { registerApps, registeredApps } from "@/platform/apps/registry";
 import type { AppManifest } from "@/platform/apps/types";
@@ -44,9 +45,10 @@ describe("home page app cards", () => {
     });
   }
 
-  it("operator (3 Refunds nav entries) gets a single Refunds card linking to the list", () => {
+  it("operator (3 Refunds nav entries) gets a single Refunds card linking to the list, and one KYC card", () => {
     expect(homeAppCards(fakeUser("operator"))).toEqual([
       { id: "refunds", name: "Refunds", description: refundsApp.description, href: "/refunds" },
+      { id: "kyc", name: "KYC Review Queue", description: kycApp.description, href: "/kyc" },
     ]);
   });
 

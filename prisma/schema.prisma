@@ -118,3 +118,30 @@ model Refund {
   @@index([paymentId])
   @@map("refunds")
 }
+
+// --- KYC Review Queue app (src/apps/kyc) ---
+
+model KycCase {
+  id                   String   @id @default(cuid())
+  reference            String   @unique // human-readable, e.g. KYC-000123
+  customerName         String // PII: masked by default
+  dateOfBirth          String // PII: calendar date YYYY-MM-DD (no time zone), masked by default
+  documentType         String // passport | national_id | driving_licence
+  documentNumber       String // PII: masked by default
+  country              String // ISO 3166-1 alpha-2
+  riskScore            Int // 0-100; >= 70 needs a second approver to approve
+  status               String   @default("pending") // pending | in_review | approved | rejected | escalated
+  assignedAnalystId    String?
+  assignedAnalystEmail String?
+  // Platform approval request awaiting a second person (high-risk approve). Locks the case while pending.
+  approvalRequestId    String?
+  decisionReason       String? // required when approved, rejected or escalated
+  createdAt            DateTime @default(now()) // UTC
+  updatedAt            DateTime @updatedAt // UTC
+
+  @@index([status, createdAt])
+  @@index([riskScore])
+  @@index([createdAt])
+  @@index([assignedAnalystId])
+  @@map("kyc_cases")
+}
