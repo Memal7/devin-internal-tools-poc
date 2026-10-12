@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local databases
+*.db
+*.db-journal
+prisma/*.db*
+
+# Next.js generated types
+next-env.d.ts
