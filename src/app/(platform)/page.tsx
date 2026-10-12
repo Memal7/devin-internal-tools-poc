@@ -5,6 +5,7 @@ import { PLATFORM_PERMISSIONS as P } from "@/platform/rbac/permissions";
 import { hasPermission } from "@/platform/rbac/policy";
 import { ROLE_DESCRIPTIONS } from "@/platform/rbac/roles";
 import { PageHeader } from "@/platform/ui/PageHeader";
+import { homeAppCards } from "./home-apps";
 
 export default async function HomePage() {
   const user = await requirePermission("read", { type: "platform" });
@@ -12,6 +13,7 @@ export default async function HomePage() {
     { title: "Approvals", href: "/approvals", text: "Four-eyes approval requests with threshold rules.", permission: P.approvalRead },
     { title: "Audit log", href: "/admin/audit", text: "Append-only history of every change.", permission: P.auditRead },
   ].filter((m) => hasPermission(user, m.permission));
+  const apps = homeAppCards(user);
 
   return (
     <div className="space-y-8">
@@ -39,20 +41,18 @@ export default async function HomePage() {
       </section>
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Apps</h2>
-        {registeredApps.length === 0 ? (
-          <p className="text-sm text-slate-500">No business apps registered yet. Apps register in src/platform/apps/registry.ts.</p>
+        {apps.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            {registeredApps.length === 0 ? "No business apps registered yet. Apps register in src/platform/apps/registry.ts." : "No apps available for your roles."}
+          </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {registeredApps.flatMap((app) =>
-              app.nav
-                .filter((item) => hasPermission(user, item.permission))
-                .map((item) => (
-                  <Link key={item.href} href={item.href} className="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400">
-                    <p className="font-medium">{app.name}</p>
-                    <p className="text-sm text-slate-600">{app.description}</p>
-                  </Link>
-                )),
-            )}
+            {apps.map((app) => (
+              <Link key={app.id} href={app.href} className="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400" data-testid="home-app-card">
+                <p className="font-medium">{app.name}</p>
+                <p className="text-sm text-slate-600">{app.description}</p>
+              </Link>
+            ))}
           </div>
         )}
       </section>
