@@ -4,7 +4,7 @@ A governed platform layer for fintech operations tools (payments, refunds, KYC).
 security and workflow primitives that business apps build on: authentication, deny-by-default
 RBAC, an append-only audit log, four-eyes approvals, PII masking and shared UI.
 
-> Registered business apps: **Refunds** (`src/apps/refunds/`, see below). Upcoming apps are
+> Registered business apps: **Refunds** (`src/apps/refunds/`) and **KYC Review Queue** (`src/apps/kyc/`), see below. Upcoming apps are
 > specified in `docs/specs/`.
 
 ## Run it
@@ -79,6 +79,49 @@ The dev login page (`/login`) lets you pick a seeded user. Dev login is enabled 
    request (four-eyes rule).*, and the attempt shows up in the audit history. Lead can still decide
    refunds requested by others.
 5. **admin@demo.local**: `/admin/audit` shows every refund event.
+
+## KYC Review Queue
+
+`src/apps/kyc/` lets compliance analysts review new customers' identity checks (spec:
+`docs/specs/kyc-review-queue.md`). Registered in `src/platform/apps/registry.ts` (navigation,
+permissions, assigned-analyst and four-eyes policies, approval rule `kyc.high-risk-approval`, PII resolver).
+
+- **Data.** `kyc_cases`: customer name, date of birth and document number (all PII, masked by default
+  in lists, detail pages and audit snapshots), document type, ISO country, risk score 0–100, status,
+  assigned analyst, decision reason, UTC timestamps. The seed creates 200 deterministic cases
+  (~20% with risk score ≥ 70, every status represented) through the audited services.
+- **Workflow.** `pending` → (operator claims, case is assigned to them) `in_review` → `approved` /
+  `rejected` / `escalated`, always with a reason. Only the assigned analyst can decide. Decided cases are final.
+- **Four-eyes.** Approving a case with risk score **≥ 70** creates a platform approval request; the
+  case stays in review (locked) until a different user with the approver role confirms it (case →
+  approved) or declines it with a reason (case back with the analyst, who can reject or escalate).
+  Self-approval is blocked and audited. Decisions made on `/approvals` are synced back to the case.
+- **Permissions.**
+
+  | Role     | `kyc:read` | `kyc:claim` | `kyc:decide` (own cases) | `kyc:confirm` | `pii:reveal` |
+  | -------- | :--------: | :---------: | :----------------------: | :-----------: | :----------: |
+  | viewer   |     ✓      |             |                          |               |              |
+  | operator |     ✓      |      ✓      |            ✓             |               |      ✓       |
+  | approver |     ✓      |             |                          |       ✓       |      ✓       |
+  | admin    |     ✓      |      ✓      |            ✓             |       ✓       |      ✓       |
+
+- **Pages.** `/kyc` (DataTable: filter by status, risk-score range and assigned analyst; sort by risk
+  score and created date) and `/kyc/[id]` (masked PII with *Reveal*, approval status, actions, history from the audit log).
+
+### KYC demo
+
+1. `npm run setup && npm run dev`, open http://localhost:3000/login.
+2. **viewer@demo.local**: open *KYC Review Queue → Review queue*. Names are masked; a case page shows
+   masked PII, no *Reveal* and no action buttons.
+3. **operator@demo.local**: filter status *Pending*, open a case with risk score ≥ 70 and click
+   *Reveal* on the name (audited), then *Claim case*. Choose *Approve* with a reason → *approval
+   requested*; the case stays *In review*, awaiting a second approver. Claim a low-risk case and reject it.
+4. **approver@demo.local**: open that case (filter *In review*, sort by risk score) and confirm the
+   approval → **Approved**. Declining needs a reason and sends the case back to the analyst.
+5. **lead@demo.local** (operator + approver): claim a high-risk case, approve it, then try to confirm
+   your own approval (on the case page via `/approvals`) → blocked with *You cannot approve or decline
+   your own request (four-eyes rule).*, recorded in the history.
+6. **admin@demo.local**: `/admin/audit`, entity type `KycCase`, shows every status change and reveal.
 
 ## Single sign-on (optional)
 

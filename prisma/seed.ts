@@ -1,3 +1,5 @@
+import { SEED_KYC_CASE_COUNT, seedKycDemo } from "../src/apps/kyc/seed";
+import { syncDecidedKycCases } from "../src/apps/kyc/service";
 import { SEED_PAYMENT_COUNT, seedRefundsDemo } from "../src/apps/refunds/seed";
 import { syncDecidedRefunds } from "../src/apps/refunds/service";
 import { decideApproval, requestApproval } from "../src/platform/approvals/service";
@@ -52,7 +54,9 @@ async function main() {
   await ensureApprovals(users);
   await seedRefundsDemo(users);
   await syncDecidedRefunds();
-  console.log(`Seeded ${DEMO_USERS.length} demo users, demo approval requests, ${SEED_PAYMENT_COUNT} payments and demo refunds.`);
+  await seedKycDemo(users);
+  await syncDecidedKycCases();
+  console.log(`Seeded ${DEMO_USERS.length} demo users, demo approval requests, ${SEED_PAYMENT_COUNT} payments with demo refunds and ${SEED_KYC_CASE_COUNT} KYC cases.`);
 }
 
 main()

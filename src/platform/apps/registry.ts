@@ -1,3 +1,4 @@
+import { kycApp } from "@/apps/kyc/manifest";
 import { refundsApp } from "@/apps/refunds/manifest";
 import type { AppManifest } from "./types";
 
@@ -23,4 +24,4 @@ export function registerApps(apps: readonly AppManifest[]): readonly AppManifest
  *   import { kycApp } from "@/apps/kyc/manifest";
  *   export const registeredApps = registerApps([kycApp]);
  */
-export const registeredApps: readonly AppManifest[] = registerApps([refundsApp]);
+export const registeredApps: readonly AppManifest[] = registerApps([refundsApp, kycApp]);
