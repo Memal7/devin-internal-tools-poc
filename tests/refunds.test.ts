@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { refundsApp } from "@/apps/refunds/manifest";
 import { createPayment } from "@/apps/refunds/payments";
 import { refundResource } from "@/apps/refunds/permissions";
@@ -165,15 +165,20 @@ describe("over-refund protection", () => {
     expect((await prisma.payment.findUniqueOrThrow({ where: { id: p.id } })).refundedMinor).toBe(100_000);
   });
 
-  it("is atomic under concurrent requests", async () => {
+  it("the reservation is atomic: a stale balance check still cannot over-refund", async () => {
     const p = await payment(30_000);
-    const results = await Promise.allSettled(
-      Array.from({ length: 5 }, () => requestRefund(operator, { paymentId: p.id, amountMinor: 10_000, reason: "Concurrent" })),
-    );
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(3);
-    const stored = await prisma.payment.findUniqueOrThrow({ where: { id: p.id } });
-    expect(stored.refundedMinor).toBe(30_000);
-    expect(await prisma.refund.count({ where: { paymentId: p.id } })).toBe(3);
+    const stale = await prisma.payment.findUniqueOrThrow({ where: { id: p.id } });
+    await requestRefund(operator, { paymentId: p.id, amountMinor: 20_000, reason: "First" });
+    // Simulate a concurrent request that read the payment before the first refund was reserved.
+    const spy = vi.spyOn(prisma.payment, "findUnique").mockResolvedValueOnce(stale);
+    try {
+      await expect(requestRefund(operator, { paymentId: p.id, amountMinor: 20_000, reason: "Raced" })).rejects.toThrow(OVER_REFUND_MESSAGE);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: p.id } })).refundedMinor).toBe(20_000);
+    expect(await prisma.refund.count({ where: { paymentId: p.id } })).toBe(1);
   });
 
   it("a declined refund releases its amount", async () => {
