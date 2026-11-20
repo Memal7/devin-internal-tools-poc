@@ -12,7 +12,7 @@ import { getApprovalRule } from "@/platform/approvals/registry";
 import { decideApproval, SELF_APPROVAL_MESSAGE } from "@/platform/approvals/service";
 import { SYSTEM_ACTOR } from "@/platform/audit/types";
 import { DEMO_USERS } from "@/platform/auth/demo-users";
-import { provisionUser } from "@/platform/auth/users";
+import { findAuthUserByEmail, provisionUser } from "@/platform/auth/users";
 import { prisma } from "@/platform/db";
 import { AuthorizationError, ConflictError } from "@/platform/errors";
 import { getPiiResolver } from "@/platform/pii/registry";
@@ -49,7 +49,10 @@ beforeAll(async () => {
   operator = await createUser("operator");
   approver = await createUser("approver");
   const demoLead = DEMO_USERS.find((u) => u.email === "lead@demo.local")!;
-  lead = await provisionUser(SYSTEM_ACTOR, { email: demoLead.email, name: demoLead.name, roles: demoLead.roles });
+  // Other test files provision lead@demo.local too (shared test database).
+  lead =
+    (await findAuthUserByEmail(demoLead.email)) ??
+    (await provisionUser(SYSTEM_ACTOR, { email: demoLead.email, name: demoLead.name, roles: demoLead.roles }));
 });
 
 describe("registration", () => {
